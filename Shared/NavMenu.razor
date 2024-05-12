@@ -1,0 +1,40 @@
+﻿@using MudCake.Data.Infrastructure
+@using MudCake.core.Pages.Nav
+@inject IEnumerable<INavigationData> pages
+
+<MudNavMenu>
+    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">Home</MudNavLink>
+    @if(SectionPages != null && SectionPages.Children != null)
+    {
+
+        @foreach(var section in SectionPages!.Children)
+        {
+           <MudNavSection Source="section"></MudNavSection>
+        }
+    }
+
+</MudNavMenu>
+
+
+@code 
+{
+    INavigationStructure? SectionPages;
+
+    protected async override Task OnParametersSetAsync()
+    {
+        SectionPages = new NavigationStructure() { Id = "Sections" };
+
+        pages.GroupBy(p => p.Title)
+             .Select(p => new { Key = $"/{p.Key}", Data = p })
+             .ToList()
+             .ForEach(p =>
+             {
+                 p.Data.ToList().ForEach(_p => SectionPages.Arrange(p.Key.Split("/"), _p));
+
+             });
+
+
+        await base.OnParametersSetAsync();
+    }
+
+}

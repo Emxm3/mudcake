@@ -1,0 +1,122 @@
+﻿@using Microsoft.AspNetCore.SignalR
+@using MudCake.Data.Services
+@using MudCake.Data.SignalR
+@using MudCake.Data.SignalR.Hubs
+@using MudCake.core.Data.Hubs.Clients
+@using MudCake.core.Data.Services
+@using MudCake.core.Data.Site
+@using MudCake.core.SignalR
+@using Microsoft.AspNetCore.SignalR.Client
+@using MudCake.core.SignalR.Hubs
+@using System.Diagnostics
+@inherits LayoutComponentBase
+
+@inject ISiteConfig config
+
+@inject IHubConnectionService hubConnections
+@inject IToastService toastService
+@inject ISnackbar Snackbar
+
+<MudThemeProvider IsDarkMode="@config.IsDarkTheme" Theme="@config?.Theme"/>
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <MudAppBar Elevation="0">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => DrawerToggle())" />
+        <MudSpacer />
+        <!-- THEME BUTTON -->
+        <MudIconButton Icon="@ThemeIcon" Color="Color.Inherit" Edge="Edge.Start" OnClick="@((e) => ThemeToggle())" />
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="1">
+        <MudDrawerHeader>
+            <MudText Typo="Typo.h6">@config?.AppNameMarkup</MudText>
+        </MudDrawerHeader>
+        <NavMenu />
+    </MudDrawer>
+    <MudMainContent>
+            @Body
+    </MudMainContent>   
+</MudLayout>
+
+@code {
+    string ThemeIcon => config.IsDarkTheme ? Icons.Material.Rounded.DarkMode : Icons.Material.Rounded.LightMode;
+
+    HubConnection? toastConnection;
+    string? toastConnectionId;
+
+    bool _drawerOpen = true;
+
+    void DrawerToggle()
+    {
+        _drawerOpen = !_drawerOpen;
+    }
+    void ThemeToggle()
+    {
+        config.IsDarkTheme ^= true;
+    }
+
+
+    protected async override Task OnInitializedAsync()
+    {
+        await InitialiseToastHub();
+        await InitialiseSiteConfigHub();
+
+        await base.OnInitializedAsync();
+
+    }
+
+    private async Task InitialiseToastHub()
+    {
+        toastService.OnConnectionRequested += c => ConnectToastService(c);
+        await toastService.Connect();
+
+    }
+
+    private string ConnectToastService(HubConnection connection)
+    {
+
+        var t = Task.Run(() => connection.Invokes(c =>
+        { 
+            toastConnectionId = c.ConnectionId;
+        },
+        c => c.On<string, Severity, string>(nameof(IToastService.Send), PopToast)
+        , c => c.On<string, Severity, string>(nameof(IToastService.SendOthers), PopToast)
+        , c => c.On<string, Severity, string>(nameof(IToastService.SendSelf), PopToast)
+        ));
+
+        Task.WaitAll(t);
+
+        return toastConnectionId;
+    }
+
+
+
+    private async Task InitialiseSiteConfigHub()
+    {
+        
+    }
+
+
+    private void PopToast(string message, Severity severity, string key)
+    {
+
+        Snackbar.Add($"{message}", severity, key: $"{key}");
+    }
+    
+
+    /// <summary>
+    /// Updates the current config with the one that was broadcasted
+    /// </summary>
+    /// <param name="siteConfig"></param>
+    private void BroadcastConfigUpdate(ISiteConfig siteConfig)
+    {
+        config.Theme = siteConfig.Theme;
+        config.IsDarkTheme = siteConfig.IsDarkTheme;
+        config.AppNameMarkup = siteConfig.AppNameMarkup;
+        config.AppName = siteConfig.AppName;
+
+    }
+
+
+}
