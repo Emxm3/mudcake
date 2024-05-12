@@ -1,0 +1,3 @@
+[submodule "Third-Party/mudcake.core"]
+	path = Third-Party/mudcake.core
+	url = https://github.com/Emxm3/mudcake.core.git
